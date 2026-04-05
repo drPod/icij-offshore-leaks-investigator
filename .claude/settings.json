@@ -1,0 +1,9 @@
+{
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "elevenlabs-tts@elevenlabs": true,
+    "railway@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true
+  }
+}
