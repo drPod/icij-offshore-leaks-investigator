@@ -57,3 +57,26 @@ Configured in `.mcp.json`. Provides Jac-specific tools, resources, and prompts.
 | `jac://docs/byllm` | AI/LLM integration (`by llm`, `sem`, structured output, tool calling) |
 | `jac://docs/jac-client` | Full-stack frontend: React/JSX client components |
 | `jac://docs/jac-scale` | Deployment and scaling |
+
+## Project Architecture
+
+This project is an investigative knowledge graph for the ICIJ Offshore Leaks database.
+
+### Key files
+
+- `main.jac` — Entry point, imports from services
+- `services/offshore_leaks.sv.jac` — Entity node, LinkedTo edge, API functions (search, investigate, get_node_detail, get_db_stats), Investigate walker
+- `db/icij_db.py` — Python SQLite query module (FTS5 search, BFS subgraph extraction, Power Player detection)
+- `frontend/index.html` — 3D force-graph visualization (Three.js, vanilla JS)
+- `scripts/download_icij.py` — Downloads ICIJ CSV data + Power Players JSON
+- `scripts/ingest_icij.py` — Parses CSVs into SQLite with FTS5 indexes
+
+### Data flow
+
+1. User searches a name → `search()` → `db.icij_db.search_nodes()` → FTS5 query
+2. User clicks result → `investigate()` → `db.icij_db.get_subgraph()` → BFS in SQLite → returns nodes with hop distances
+3. Frontend animates graph depth-by-depth, flares Power Player nodes
+
+### Jac ↔ Python interop
+
+The Jac service imports `db.icij_db` (a Python module) directly. Type coercion note: Jac may pass function default parameters as strings — the Python module casts `int()` on numeric parameters defensively.

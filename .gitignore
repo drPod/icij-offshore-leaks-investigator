@@ -22,3 +22,15 @@ dist/
 .jac-server.log
 .jac-ide-bashrc
 .jaccoder/
+
+# ICIJ data (large, generated — run scripts/download_icij.py + scripts/ingest_icij.py)
+data/icij.db
+data/icij.db-wal
+data/icij.db-shm
+data/icij_csv/
+data/full-oldb.LATEST.zip
+data/npm_graph.json
+data/supply_chain.db
+
+# Playwright MCP artifacts
+.playwright-mcp/

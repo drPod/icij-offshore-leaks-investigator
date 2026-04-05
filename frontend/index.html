@@ -3,322 +3,750 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>npm Supply Chain Attack Simulator</title>
+<title>ICIJ Offshore Leaks Investigator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,300&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="//cdn.jsdelivr.net/npm/three@0.160.1/build/three.min.js"></script>
 <script src="//cdn.jsdelivr.net/npm/three-spritetext@1.9.5/dist/three-spritetext.min.js"></script>
 <script src="//cdn.jsdelivr.net/npm/3d-force-graph@1.74.3/dist/3d-force-graph.min.js"></script>
 <style>
+:root {
+  --bg: #07080d;
+  --surface: rgba(6, 8, 18, 0.92);
+  --gold: #c9a227;
+  --gold-bright: #ffd700;
+  --gold-dim: rgba(201,162,39,0.12);
+  --pp-red: #e03e3e;
+  --pp-glow: #ffd700;
+  --entity: #c9a227;
+  --officer: #00b4d8;
+  --address: #48bb78;
+  --intermediary: #b44ddb;
+  --border: rgba(255,255,255,0.06);
+  --text: #c8c8d0;
+  --text-dim: rgba(255,255,255,0.3);
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'DM Sans', system-ui, sans-serif;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
-  background: #0a0a0f;
-  color: #e0e0e0;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
   overflow: hidden;
   height: 100vh;
   width: 100vw;
 }
 
+/* ── PP Grid Overlay ─────────────────────────────── */
+#pp-grid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  transition: opacity 0.5s ease;
+}
+
+#pp-grid-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.grid-header {
+  padding: 32px 40px 0;
+  flex-shrink: 0;
+}
+
+.grid-masthead {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 5px;
+  color: var(--gold);
+  text-transform: uppercase;
+  opacity: 0.5;
+  margin-bottom: 6px;
+}
+
+.grid-title {
+  font-size: 28px;
+  font-weight: 300;
+  color: #fff;
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
+}
+
+.grid-title em {
+  font-style: italic;
+  color: var(--gold);
+  font-weight: 300;
+}
+
+.grid-subtitle {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 20px;
+}
+
+.demo-scenarios {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+
+.demo-card {
+  flex-shrink: 0;
+  background: rgba(201,162,39,0.04);
+  border: 1px solid rgba(201,162,39,0.15);
+  border-radius: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 220px;
+  max-width: 280px;
+}
+
+.demo-card:hover {
+  background: rgba(201,162,39,0.08);
+  border-color: var(--gold);
+  box-shadow: 0 0 20px rgba(201,162,39,0.06);
+}
+
+.demo-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 4px;
+  opacity: 0.7;
+}
+
+.demo-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e0e0e0;
+  margin-bottom: 4px;
+}
+
+.demo-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.grid-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.filter-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-btn:hover { border-color: rgba(255,255,255,0.15); color: var(--text); }
+.filter-btn.active { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+
+.grid-selection-info {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+
+.grid-selection-info strong { color: var(--gold-bright); font-weight: 600; }
+
+/* ── PP Card Grid ────────────────────────────────── */
+.grid-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 40px 120px;
+}
+
+.grid-scroll::-webkit-scrollbar { width: 5px; }
+.grid-scroll::-webkit-scrollbar-track { background: transparent; }
+.grid-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+.pp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 12px;
+}
+
+.pp-card {
+  position: relative;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 12px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  overflow: hidden;
+}
+
+.pp-card:hover {
+  border-color: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+}
+
+.pp-card.selected {
+  border-color: var(--gold);
+  background: var(--gold-dim);
+  box-shadow: 0 0 24px rgba(201,162,39,0.1), inset 0 0 24px rgba(201,162,39,0.03);
+}
+
+.pp-card.dimmed {
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.pp-card.no-connections {
+  opacity: 0.35;
+}
+
+.pp-card-img {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin: 0 auto 10px;
+  display: block;
+  border: 2px solid var(--border);
+  transition: border-color 0.2s;
+}
+
+.pp-card.selected .pp-card-img {
+  border-color: var(--gold);
+}
+
+.pp-card-img-fallback {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.04);
+  border: 2px solid var(--border);
+}
+
+.pp-card-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #e0e0e0;
+  margin-bottom: 3px;
+  line-height: 1.3;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pp-card-title {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+
+.pp-card-leak {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.leak-panama { background: rgba(0,180,216,0.1); color: #00b4d8; }
+.leak-pandora { background: rgba(224,64,251,0.1); color: #b44ddb; }
+.leak-paradise { background: rgba(72,187,120,0.1); color: #48bb78; }
+
+.pp-card-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: #000;
+  font-size: 12px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.pp-card.selected .pp-card-check { display: flex; }
+
+/* ── Grid Footer ─────────────────────────────────── */
+.grid-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 410;
+  padding: 16px 40px 24px;
+  background: linear-gradient(transparent, var(--bg) 40%);
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.grid-footer > * { pointer-events: auto; }
+
+.find-btn {
+  appearance: none;
+  border: 2px solid var(--gold);
+  background: var(--gold-dim);
+  color: var(--gold-bright);
+  padding: 14px 36px;
+  border-radius: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.find-btn:hover:not(:disabled) {
+  background: rgba(201,162,39,0.2);
+  box-shadow: 0 0 30px rgba(201,162,39,0.15);
+}
+
+.find-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.search-toggle-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  padding: 14px 24px;
+  border-radius: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.search-toggle-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+
+/* ── Graph Mode ──────────────────────────────────── */
 #graph-container { width: 100vw; height: 100vh; }
 
-/* ── Stats overlay ─────────────────────────────── */
-#stats-overlay {
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  backdrop-filter: blur(16px);
+}
+
+.panel-title {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 4px;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  opacity: 0.6;
+}
+
+/* ── Search panel (hidden by default, secondary) ── */
+#search-panel {
   position: fixed;
   top: 24px;
   left: 24px;
   z-index: 100;
-  pointer-events: none;
-}
-
-.stats-box {
-  background: rgba(6, 8, 18, 0.85);
-  border: 1px solid rgba(0, 212, 255, 0.2);
-  border-radius: 12px;
-  padding: 20px 24px;
-  backdrop-filter: blur(16px);
-  min-width: 280px;
-}
-
-.stats-title {
-  font-size: 10px;
-  letter-spacing: 4px;
-  color: rgba(0, 212, 255, 0.6);
-  text-transform: uppercase;
-  margin-bottom: 16px;
-}
-
-.stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 10px;
-}
-
-.stat-label {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-}
-
-.stat-value {
-  font-size: 22px;
-  font-weight: 300;
-  color: #ffffff;
-}
-
-.stat-value.danger {
-  color: #ff0040;
-  text-shadow: 0 0 20px rgba(255, 0, 64, 0.5);
-}
-
-.stat-value.warn {
-  color: #ffaa00;
-}
-
-/* ── Infection log ──────────────────────────────── */
-#infection-log {
-  position: fixed;
-  top: 24px;
-  right: 24px;
-  z-index: 100;
-  pointer-events: none;
-  max-width: 320px;
-}
-
-.log-box {
-  background: rgba(6, 8, 18, 0.85);
-  border: 1px solid rgba(255, 0, 64, 0.15);
-  border-radius: 12px;
-  padding: 16px 20px;
-  backdrop-filter: blur(16px);
-  max-height: 300px;
-  overflow: hidden;
+  width: 320px;
   display: none;
 }
 
-.log-box.active { display: block; }
+#search-input {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  color: #fff;
+  padding: 9px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-family: var(--sans);
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
 
-.log-title {
-  font-size: 10px;
-  letter-spacing: 4px;
-  color: rgba(255, 0, 64, 0.6);
+#search-input::placeholder { color: var(--text-dim); }
+#search-input:focus { border-color: rgba(201,162,39,0.4); }
+
+#search-results {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 6px;
+  display: none;
+}
+
+.search-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 12px;
+}
+
+.search-result:hover { background: rgba(255,255,255,0.04); }
+.search-result .sr-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-result .sr-type { font-family: var(--mono); font-size: 8px; letter-spacing: 1px; text-transform: uppercase; padding: 2px 5px; border-radius: 3px; }
+.sr-type.entity { background: rgba(201,162,39,0.12); color: var(--entity); }
+.sr-type.officer { background: rgba(0,180,216,0.12); color: var(--officer); }
+.sr-type.address { background: rgba(72,187,120,0.12); color: var(--address); }
+.sr-type.intermediary { background: rgba(180,77,219,0.12); color: var(--intermediary); }
+.sr-pp { color: var(--gold-bright); font-size: 13px; }
+
+/* ── Stats panel ─────────────────────────────────── */
+#stats-panel {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 100;
+  min-width: 200px;
+  display: none;
+}
+
+.stat-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+.stat-label { font-family: var(--mono); font-size: 9px; color: var(--text-dim); letter-spacing: 1.5px; text-transform: uppercase; }
+.stat-value { font-size: 17px; font-weight: 300; color: #fff; }
+.stat-value.gold { color: var(--gold-bright); text-shadow: 0 0 12px rgba(255,215,0,0.3); }
+
+/* ── Summary panel ───────────────────────────────── */
+#summary-panel {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  width: 360px;
+  max-height: 340px;
+  overflow-y: auto;
+  display: none;
+}
+
+.summary-item {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.summary-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+.summary-pair {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e0e0e0;
+  margin-bottom: 3px;
+}
+
+.summary-hops {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--gold);
+  letter-spacing: 1px;
   text-transform: uppercase;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
-.log-entries {
-  font-size: 11px;
-  line-height: 1.8;
-  color: rgba(255, 255, 255, 0.5);
+.summary-text {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.6;
 }
 
-.log-entry {
+/* ── Agent log ────────────────────────────────── */
+#agent-log {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  z-index: 100;
+  width: 380px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  display: none;
+}
+
+#agent-log::-webkit-scrollbar { width: 4px; }
+#agent-log::-webkit-scrollbar-track { background: transparent; }
+#agent-log::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+.agent-entry {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
   opacity: 0;
   animation: fadeIn 0.3s ease forwards;
 }
 
-.log-entry .pkg-name {
-  color: #ff6644;
+.agent-entry:last-child { border-bottom: none; }
+
+.agent-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
 }
 
-.log-entry .depth-tag {
-  color: rgba(255, 255, 255, 0.25);
+.agent-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.agent-icon.search { background: rgba(0,180,216,0.15); color: var(--officer); }
+.agent-icon.arrow { background: rgba(201,162,39,0.12); color: var(--gold); }
+.agent-icon.star { background: rgba(255,215,0,0.15); color: var(--pp-glow); }
+.agent-icon.link { background: rgba(72,187,120,0.12); color: var(--address); }
+
+.agent-entry-text {
+  font-size: 12px;
+  color: #e0e0e0;
+  font-weight: 500;
+}
+
+.agent-entry-detail {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-left: 26px;
+  line-height: 1.4;
+}
+
+.agent-entry-skip {
+  font-family: var(--mono);
   font-size: 9px;
-  margin-left: 6px;
+  color: rgba(255,255,255,0.15);
+  margin-left: 26px;
+  margin-top: 2px;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateX(10px); }
-  to { opacity: 1; transform: translateX(0); }
+.agent-entry.discovery .agent-entry-text { color: var(--pp-glow); font-weight: 600; }
+.agent-entry.found .agent-entry-text { color: var(--address); }
+
+/* ── Detail panel ────────────────────────────────── */
+#detail-panel {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 100;
+  width: 320px;
+  max-height: calc(100vh - 400px);
+  overflow-y: auto;
+  display: none;
+  opacity: 0;
+  transform: translateX(16px);
+  transition: opacity 0.2s, transform 0.2s;
 }
 
-/* ── Controls ──────────────────────────────────── */
+#detail-panel.visible { display: block; opacity: 1; transform: translateX(0); }
+.detail-name { font-size: 15px; font-weight: 500; color: #fff; margin-bottom: 6px; word-break: break-word; }
+.detail-meta { font-size: 11px; color: var(--text-dim); line-height: 1.7; margin-bottom: 10px; }
+.detail-meta span { color: rgba(255,255,255,0.7); }
+.pp-badge { display: inline-block; background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.25); color: var(--gold-bright); padding: 2px 8px; border-radius: 4px; font-family: var(--mono); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+.detail-link { font-size: 11px; color: var(--gold); text-decoration: none; border-bottom: 1px solid rgba(201,162,39,0.2); transition: color 0.15s; }
+.detail-link:hover { color: var(--gold-bright); }
+.detail-connections { font-size: 11px; line-height: 1.6; color: var(--text-dim); }
+.detail-connections .conn-type { font-family: var(--mono); color: rgba(255,255,255,0.2); font-size: 8px; text-transform: uppercase; letter-spacing: 1px; }
+.detail-close { position: absolute; top: 10px; right: 10px; background: none; border: none; color: rgba(255,255,255,0.25); cursor: pointer; font-size: 15px; }
+
+/* ── Controls ────────────────────────────────────── */
 #controls {
   position: fixed;
-  bottom: 28px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
-  display: flex;
-  gap: 12px;
-  align-items: center;
+  display: none;
+  gap: 10px;
 }
 
 .ctrl-btn {
   appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(6, 8, 18, 0.8);
-  color: rgba(255, 255, 255, 0.75);
-  padding: 10px 20px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
   letter-spacing: 2px;
   text-transform: uppercase;
-  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s;
   backdrop-filter: blur(12px);
 }
 
-.ctrl-btn:hover {
-  background: rgba(0, 212, 255, 0.1);
-  border-color: rgba(0, 212, 255, 0.4);
-  color: #00d4ff;
-}
+.ctrl-btn:hover { border-color: rgba(255,255,255,0.15); color: var(--text); }
 
-.ctrl-btn.danger:hover {
-  background: rgba(255, 0, 64, 0.1);
-  border-color: rgba(255, 0, 64, 0.4);
-  color: #ff0040;
-}
-
-.ctrl-btn:active { transform: scale(0.97); }
-
-#search-input {
-  appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(6, 8, 18, 0.8);
-  color: #ffffff;
-  padding: 10px 18px;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-family: inherit;
-  width: 220px;
-  outline: none;
-  backdrop-filter: blur(12px);
-  transition: border-color 0.2s;
-}
-
-#search-input::placeholder { color: rgba(255,255,255,0.25); }
-#search-input:focus { border-color: rgba(0, 212, 255, 0.5); }
-
-/* ── Title badge ───────────────────────────────── */
-#title-badge {
-  position: fixed;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 100;
-  text-align: center;
-  pointer-events: none;
-}
-
-.title-main {
-  font-size: 13px;
-  letter-spacing: 6px;
-  color: rgba(0, 212, 255, 0.5);
-  text-transform: uppercase;
-}
-
-.title-sub {
-  font-size: 10px;
-  letter-spacing: 3px;
-  color: rgba(255, 255, 255, 0.2);
-  margin-top: 4px;
-}
-
-/* ── Loading ───────────────────────────────────── */
-#loading {
-  position: fixed;
-  inset: 0;
-  z-index: 999;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #0a0a0f;
-  gap: 20px;
-}
-
-.loading-text {
-  font-size: 11px;
-  letter-spacing: 4px;
-  color: rgba(0, 212, 255, 0.5);
-  text-transform: uppercase;
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 2px solid rgba(0, 212, 255, 0.1);
-  border-top-color: #00d4ff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ── Tooltip ───────────────────────────────────── */
+/* ── Tooltip ─────────────────────────────────────── */
 #node-tooltip {
   position: fixed;
   z-index: 200;
   pointer-events: none;
-  background: rgba(6, 8, 18, 0.92);
-  border: 1px solid rgba(0, 212, 255, 0.25);
-  border-radius: 10px;
-  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
   backdrop-filter: blur(16px);
   font-size: 11px;
   display: none;
-  max-width: 260px;
+  max-width: 280px;
 }
 
-.tooltip-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #ffffff;
-  margin-bottom: 6px;
+.tooltip-name { font-size: 12px; font-weight: 500; color: #fff; margin-bottom: 3px; }
+.tooltip-detail { color: var(--text-dim); line-height: 1.5; }
+.tooltip-detail span { color: rgba(255,255,255,0.7); }
+
+/* ── PP alert (flare) ────────────────────────────── */
+.pp-alert {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 300;
+  background: var(--surface);
+  border: 2px solid rgba(255,215,0,0.4);
+  border-radius: 14px;
+  padding: 20px 32px;
+  text-align: center;
+  backdrop-filter: blur(20px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s;
 }
 
-.tooltip-detail {
-  color: rgba(255, 255, 255, 0.45);
-  line-height: 1.7;
+.pp-alert.visible { opacity: 1; }
+.pp-alert .pp-star { font-size: 24px; margin-bottom: 6px; }
+.pp-alert .pp-name { font-size: 16px; color: var(--gold-bright); font-weight: 600; }
+.pp-alert .pp-title { font-family: var(--mono); font-size: 10px; color: rgba(255,215,0,0.5); margin-top: 4px; letter-spacing: 2px; text-transform: uppercase; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.tooltip-detail span { color: rgba(255, 255, 255, 0.75); }
+.log-entry { opacity: 0; animation: fadeIn 0.25s ease forwards; }
 
-/* Hide 3d-force-graph default nav instructions */
-.graph-nav-info, .graph-info-msg { display: none !important; }
-.scene-nav-info { display: none !important; }
+/* Hide 3d-force-graph nav info */
+.graph-nav-info, .graph-info-msg, .scene-nav-info { display: none !important; }
 </style>
 </head>
 <body>
 
-<div id="loading">
-  <div class="loading-spinner"></div>
-  <div class="loading-text">Loading npm ecosystem graph...</div>
+<!-- ── PP Grid (Landing) ──────────────────────── -->
+<div id="pp-grid-overlay">
+  <div class="grid-header">
+    <div class="grid-masthead">ICIJ Offshore Leaks</div>
+    <div class="grid-title">Find the <em>hidden connections</em></div>
+    <div class="grid-subtitle">Select two or more Power Players, or try a scenario below</div>
+
+    <div class="demo-scenarios">
+      <div class="demo-card" onclick="loadScenario('annan')">
+        <div class="demo-label">4 Power Players</div>
+        <div class="demo-title">The Annan Network</div>
+        <div class="demo-desc">UN Secretary General's son, Cambodia's justice minister, Malaysian PM's son, and a Nigerian governor — all sharing offshore infrastructure</div>
+      </div>
+      <div class="demo-card" onclick="loadScenario('heads')">
+        <div class="demo-label">3 Heads of State</div>
+        <div class="demo-title">Sudan · Iraq · UAE</div>
+        <div class="demo-desc">Three heads of state connected through a single London law firm and BVI shell companies</div>
+      </div>
+      <div class="demo-card" onclick="loadScenario('putin')">
+        <div class="demo-label">Putin's Circle</div>
+        <div class="demo-title">Shared Address in Tortola</div>
+        <div class="demo-desc">An El Salvador president, a Lebanese PM, and Putin's associate — all sharing a BVI registered address</div>
+      </div>
+    </div>
+
+    <div class="grid-toolbar">
+      <button class="filter-btn active" onclick="filterByRelease('all')" data-release="all">All</button>
+      <button class="filter-btn" onclick="filterByRelease('pandora-papers')" data-release="pandora-papers">Pandora</button>
+      <button class="filter-btn" onclick="filterByRelease('paradise-papers')" data-release="paradise-papers">Paradise</button>
+      <button class="filter-btn" onclick="filterByRelease('panama-papers')" data-release="panama-papers">Panama</button>
+      <div class="grid-selection-info"><strong id="pp-count">0</strong> selected</div>
+    </div>
+  </div>
+  <div class="grid-scroll">
+    <div class="pp-grid" id="pp-grid"></div>
+  </div>
+  <div class="grid-footer">
+    <button class="find-btn" id="find-btn" disabled onclick="findConnections()">Select 2+ Power Players</button>
+    <button class="search-toggle-btn" onclick="switchToSearch()">Search by name</button>
+  </div>
 </div>
 
+<!-- ── Graph Mode ─────────────────────────────── -->
 <div id="graph-container"></div>
 
-<div id="stats-overlay">
-  <div class="stats-box">
-    <div class="stats-title">Ecosystem Status</div>
-    <div class="stat-row">
-      <span class="stat-label">Total Packages</span>
-      <span class="stat-value" id="stat-total">-</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Compromised</span>
-      <span class="stat-value" id="stat-compromised">0</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Downloads Affected</span>
-      <span class="stat-value" id="stat-downloads">0</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Attack Depth</span>
-      <span class="stat-value" id="stat-depth">-</span>
-    </div>
-  </div>
+<div id="search-panel" class="panel">
+  <div class="panel-title">Search</div>
+  <input type="text" id="search-input" placeholder="Search a name..." autocomplete="off" />
+  <div id="search-results"></div>
 </div>
 
-<div id="infection-log">
-  <div class="log-box" id="log-box">
-    <div class="log-title">Infection Cascade</div>
-    <div class="log-entries" id="log-entries"></div>
-  </div>
+<div id="stats-panel" class="panel">
+  <div class="panel-title">Path</div>
+  <div class="stat-row"><span class="stat-label">Nodes</span><span class="stat-value" id="stat-nodes">0</span></div>
+  <div class="stat-row"><span class="stat-label">Edges</span><span class="stat-value" id="stat-edges">0</span></div>
+  <div class="stat-row"><span class="stat-label">Power Players</span><span class="stat-value gold" id="stat-pp">0</span></div>
+</div>
+
+<div id="summary-panel" class="panel">
+  <div class="panel-title">Analysis</div>
+  <div id="summary-content"></div>
+</div>
+
+<div id="agent-log" class="panel">
+  <div class="panel-title" style="color:var(--officer)">Agent Investigation</div>
+  <div id="agent-log-entries"></div>
+</div>
+
+<div id="detail-panel" class="panel">
+  <button class="detail-close" onclick="closeDetail()">&times;</button>
+  <div id="detail-content"></div>
 </div>
 
 <div id="node-tooltip">
@@ -326,365 +754,368 @@ body {
   <div class="tooltip-detail" id="tooltip-detail"></div>
 </div>
 
-<div id="title-badge">
-  <div class="title-main">Supply Chain Attack Simulator</div>
-  <div class="title-sub">Click any package to compromise it</div>
+<div class="pp-alert" id="pp-alert">
+  <div class="pp-star">&#9733;</div>
+  <div class="pp-name" id="pp-alert-name"></div>
+  <div class="pp-title" id="pp-alert-title"></div>
 </div>
 
 <div id="controls">
-  <input type="text" id="search-input" placeholder="Search packages..." />
-  <button class="ctrl-btn danger" id="btn-reset" onclick="resetGraph()">Reset</button>
+  <button class="ctrl-btn" onclick="switchToGrid()">Power Players</button>
 </div>
 
 <script>
-// ── Config ──────────────────────────────────────
 const JAC_API = 'http://localhost:8000';
-const DATA_URL = '../data/npm_graph.json';
-const CASCADE_DELAY = 350;
 
-// ── State ───────────────────────────────────────
+const TYPE_COLORS = { entity:'#c9a227', officer:'#00b4d8', address:'#48bb78', intermediary:'#b44ddb', other:'#666' };
+const EDGE_COLORS = { officer_of:'rgba(0,180,216,0.45)', registered_address:'rgba(72,187,120,0.45)', intermediary_of:'rgba(180,77,219,0.45)' };
+const PP_COLOR = '#e03e3e';
+const PP_GLOW = '#ffd700';
+const BG_COLOR = '#07080d';
+const NODE_SIZES = { entity:10, officer:7, intermediary:6, address:4, other:3 };
+
 let Graph = null;
 let graphData = { nodes: [], links: [] };
 let nodeMap = {};
-let reverseDepMap = {};
-let jacAvailable = false;
+let revealedNodes = new Set();
 let isAnimating = false;
-let compromisedCount = 0;
-let affectedDownloads = 0;
-let maxDepth = 0;
 
-// ── Color palette ───────────────────────────────
-const COLORS = {
-  healthy: '#00d4ff',
-  healthyDim: '#0088aa',
-  depths: ['#ff0040', '#ff3300', '#ff6600', '#ff8800', '#ffaa00', '#ffcc44'],
-  link: 'rgba(80, 120, 180, 0.35)',
-  linkInfected: '#ff0040',
-  bg: '#06080f',
-};
+// PP grid state
+let allPPs = [];
+let connectedPairs = [];
+let selectedPPs = new Map(); // slug -> pp object
 
-function getDepthColor(depth) {
-  if (depth < 0) return COLORS.healthy;
-  return COLORS.depths[Math.min(depth, COLORS.depths.length - 1)];
-}
-
-function formatDownloads(n) {
-  if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
-  return String(n);
-}
-
-// ── Initialize ──────────────────────────────────
+// ── Init ────────────────────────────────────────
 async function init() {
-  // 1. Load graph data
-  let rawData;
-  try {
-    const resp = await fetch(DATA_URL);
-    rawData = await resp.json();
-  } catch (e) {
-    console.error('Failed to load graph data:', e);
-    document.querySelector('.loading-text').textContent = 'Failed to load graph data';
-    return;
-  }
-
-  graphData = rawData.graph;
-
-  // Mark all nodes as healthy initially
-  graphData.nodes.forEach(n => {
-    n.compromised = false;
-    n.depth = -1;
-    n.__initialVal = n.val;
-    nodeMap[n.id] = n;
-  });
-
-  // Build reverse dependency map (who depends on X?)
-  graphData.links.forEach(l => {
-    const src = typeof l.source === 'string' ? l.source : l.source.id;
-    const tgt = typeof l.target === 'string' ? l.target : l.target.id;
-    // src depends on tgt, so tgt's dependents include src
-    if (!reverseDepMap[tgt]) reverseDepMap[tgt] = [];
-    reverseDepMap[tgt].push(src);
-  });
-
-  // 2. Try to build graph in Jac backend
-  try {
-    const resp = await fetch(`${JAC_API}/function/build_graph`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ packages: rawData.packages }),
-    });
-    if (resp.ok) {
-      jacAvailable = true;
-      console.log('Jac backend connected');
-    }
-  } catch (e) {
-    console.warn('Jac API unavailable, using client-side simulation');
-  }
-
-  // 3. Render graph
-  document.getElementById('stat-total').textContent = graphData.nodes.length;
   initGraph();
-  document.getElementById('loading').style.display = 'none';
-}
-
-// ── Node sizing ─────────────────────────────────
-function getNodeVal(n) {
-  const dl = n.downloads || 1000;
-  // Power scale: big packages are dramatically larger
-  return Math.pow(dl / 1000, 0.35);
-}
-
-// ── 3D Graph Setup ──────────────────────────────
-function initGraph() {
-  const container = document.getElementById('graph-container');
-  const NODE_REL_SIZE = 2;
-
-  Graph = ForceGraph3D()(container)
-    .graphData(graphData)
-    .backgroundColor(COLORS.bg)
-    .nodeRelSize(NODE_REL_SIZE)
-    .nodeVal(n => {
-      const base = getNodeVal(n);
-      return n.compromised ? base * 1.3 : base;
-    })
-    .nodeColor(n => n.compromised ? getDepthColor(n.depth) : COLORS.healthy)
-    .nodeOpacity(0.88)
-    .nodeResolution(16)
-    .nodeLabel(() => '') // We handle tooltips manually
-    .linkColor(l => {
-      const src = typeof l.source === 'object' ? l.source : nodeMap[l.source];
-      const tgt = typeof l.target === 'object' ? l.target : nodeMap[l.target];
-      if (src && tgt && src.compromised && tgt.compromised) return COLORS.linkInfected;
-      return COLORS.link;
-    })
-    .linkWidth(l => {
-      const src = typeof l.source === 'object' ? l.source : nodeMap[l.source];
-      const tgt = typeof l.target === 'object' ? l.target : nodeMap[l.target];
-      if (src && tgt && src.compromised && tgt.compromised) return 1.5;
-      return 0.6;
-    })
-    .linkOpacity(0.8)
-    .linkDirectionalParticles(l => {
-      const src = typeof l.source === 'object' ? l.source : nodeMap[l.source];
-      const tgt = typeof l.target === 'object' ? l.target : nodeMap[l.target];
-      if (src && tgt && src.compromised && tgt.compromised) return 3;
-      return 0;
-    })
-    .linkDirectionalParticleColor(() => '#ff4444')
-    .linkDirectionalParticleWidth(1.5)
-    .linkDirectionalParticleSpeed(0.006)
-    .onNodeClick(handleNodeClick)
-    .onNodeHover(handleNodeHover)
-    .nodeThreeObject(n => {
-      if (n.downloads > 5_000_000) {
-        const sprite = new SpriteText(n.name);
-        sprite.color = n.compromised ? '#ffffff' : '#ffffff';
-        sprite.textHeight = 3.5;
-        sprite.fontWeight = '600';
-        sprite.backgroundColor = n.compromised
-          ? 'rgba(180, 0, 30, 0.75)'
-          : 'rgba(0, 40, 60, 0.75)';
-        sprite.padding = [2, 4];
-        sprite.borderRadius = 3;
-        // Position label above the node sphere
-        const r = Math.cbrt(getNodeVal(n)) * NODE_REL_SIZE;
-        sprite.position.y = r + 4;
-        return sprite;
-      }
-      return false;
-    })
-    .nodeThreeObjectExtend(true)
-    .d3AlphaDecay(0.03)
-    .d3VelocityDecay(0.3)
-    .warmupTicks(80)
-    .cooldownTicks(40);
-
-  // Hide default nav info text
-  const infoEl = container.querySelector('.graph-info-msg');
-  if (infoEl) infoEl.style.display = 'none';
-  const navEl = container.querySelector('.graph-nav-info');
-  if (navEl) navEl.style.display = 'none';
-
-  // Slight camera offset
-  setTimeout(() => {
-    Graph.cameraPosition({ x: 0, y: 0, z: 900 });
-  }, 100);
-}
-
-// ── Node Interactions ───────────────────────────
-function handleNodeClick(node) {
-  if (!node || isAnimating) return;
-  if (node.compromised) return; // Already infected
-
-  infectPackage(node.id);
-}
-
-function handleNodeHover(node, prevNode) {
-  const tooltip = document.getElementById('node-tooltip');
-  const container = document.getElementById('graph-container');
-  container.style.cursor = node ? 'pointer' : 'default';
-
-  if (!node) {
-    tooltip.style.display = 'none';
-    return;
-  }
-
-  document.getElementById('tooltip-name').textContent = node.name;
-  let detail = `Downloads: <span>${formatDownloads(node.downloads)}/week</span>`;
-  if (node.compromised) {
-    detail += `<br>Status: <span style="color:${getDepthColor(node.depth)}">COMPROMISED (depth ${node.depth})</span>`;
-  } else {
-    detail += `<br>Status: <span style="color:#00d4ff">Healthy</span>`;
-  }
-  document.getElementById('tooltip-detail').innerHTML = detail;
-
-  tooltip.style.display = 'block';
-  // Position near cursor
-  document.addEventListener('mousemove', positionTooltip);
-}
-
-function positionTooltip(e) {
-  const tooltip = document.getElementById('node-tooltip');
-  if (tooltip.style.display === 'none') {
-    document.removeEventListener('mousemove', positionTooltip);
-    return;
-  }
-  tooltip.style.left = (e.clientX + 16) + 'px';
-  tooltip.style.top = (e.clientY - 10) + 'px';
-}
-
-// ── Infection Logic ─────────────────────────────
-async function infectPackage(packageName) {
-  isAnimating = true;
-  let byDepth = {};
-
-  if (jacAvailable) {
-    try {
-      byDepth = await infectViaJac(packageName);
-    } catch (e) {
-      console.warn('Jac API failed, falling back to client-side:', e);
-      byDepth = infectClientSide(packageName);
+  try {
+    const resp = await fetch(`${JAC_API}/function/get_power_players`, {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}',
+    });
+    const env = await resp.json();
+    const data = env?.data?.result;
+    if (data?.success) {
+      allPPs = data.players;
+      connectedPairs = data.connected_pairs;
+      renderGrid(allPPs);
     }
+  } catch(e) {
+    console.warn('Failed to load Power Players:', e);
+    document.querySelector('.grid-subtitle').textContent = 'API unavailable. Run: jac start main.jac';
+  }
+}
+
+// ── Grid Rendering ──────────────────────────────
+function renderGrid(players) {
+  const grid = document.getElementById('pp-grid');
+  grid.innerHTML = players.map(pp => {
+    const leakClass = pp.release.includes('panama') ? 'leak-panama' : pp.release.includes('pandora') ? 'leak-pandora' : 'leak-paradise';
+    const leakLabel = pp.release.replace('-papers','').replace('-',' ');
+    const connClass = '';
+    return `<div class="pp-card ${connClass}" data-slug="${pp.slug}" data-release="${pp.release}" onclick="togglePP('${pp.slug}')">
+      <div class="pp-card-check">\u2713</div>
+      ${pp.image
+        ? `<img class="pp-card-img" src="${pp.image}" alt="" loading="lazy" onerror="this.outerHTML='<div class=pp-card-img-fallback>${escapeHtml(pp.name.charAt(0))}</div>'">`
+        : `<div class="pp-card-img-fallback">${escapeHtml(pp.name.charAt(0))}</div>`}
+      <div class="pp-card-name">${escapeHtml(pp.name)}</div>
+      <div class="pp-card-title">${escapeHtml(pp.title)}</div>
+      <span class="pp-card-leak ${leakClass}">${leakLabel}</span>
+    </div>`;
+  }).join('');
+}
+
+function togglePP(slug) {
+  if (selectedPPs.has(slug)) {
+    selectedPPs.delete(slug);
   } else {
-    byDepth = infectClientSide(packageName);
+    const pp = allPPs.find(p => p.slug === slug);
+    if (pp) selectedPPs.set(slug, pp);
+  }
+  updateGridSelection();
+}
+
+function updateGridSelection() {
+  const count = selectedPPs.size;
+  document.getElementById('pp-count').textContent = count;
+
+  const btn = document.getElementById('find-btn');
+  btn.disabled = count < 2;
+  btn.textContent = count < 2 ? 'Select 2+ Power Players' : `Find Connections (${count})`;
+
+  // Update card states
+  const selectedSlugs = new Set(selectedPPs.keys());
+
+  document.querySelectorAll('.pp-card').forEach(card => {
+    card.classList.toggle('selected', selectedSlugs.has(card.dataset.slug));
+    card.classList.remove('dimmed');
+  });
+}
+
+function filterByRelease(release) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.release === release));
+  document.querySelectorAll('.pp-card').forEach(card => {
+    card.style.display = (release === 'all' || card.dataset.release === release) ? '' : 'none';
+  });
+}
+
+// ── Find Connections ────────────────────────────
+async function findConnections() {
+  if (selectedPPs.size < 2 || isAnimating) return;
+  isAnimating = true;
+
+  const nodeIds = [];
+  for (const [, pp] of selectedPPs) nodeIds.push(pp.node_ids[0]);
+
+  switchToGraph();
+
+  try {
+    const resp = await fetch(`${JAC_API}/function/find_connections`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ node_ids: nodeIds }),
+    });
+    const env = await resp.json();
+    const result = env?.data?.result;
+
+    if (!result?.success || !result.nodes.length) {
+      document.getElementById('summary-content').innerHTML =
+        '<div style="color:var(--text-dim);font-size:12px">No connections found within 6 hops. Try different Power Players.</div>';
+      document.getElementById('summary-panel').style.display = 'block';
+      isAnimating = false;
+      return;
+    }
+
+    // Show agent log and start animating it
+    const agentLog = document.getElementById('agent-log');
+    const agentEntries = document.getElementById('agent-log-entries');
+    agentEntries.innerHTML = '';
+    agentLog.style.display = 'block';
+
+    // Animate investigation log entries one by one
+    const logItems = result.investigation_log || [];
+    for (const entry of logItems) {
+      const icons = {search:'\u{1F50D}', arrow:'\u2192', star:'\u2605', link:'\u2714'};
+      const el = document.createElement('div');
+      el.className = `agent-entry ${entry.type}`;
+      el.innerHTML = `
+        <div class="agent-entry-header">
+          <div class="agent-icon ${entry.icon}">${icons[entry.icon]||'\u2192'}</div>
+          <div class="agent-entry-text">${escapeHtml(entry.text)}</div>
+        </div>
+        ${entry.detail ? `<div class="agent-entry-detail">${escapeHtml(entry.detail)}</div>` : ''}
+        ${entry.skip ? `<div class="agent-entry-skip">${escapeHtml(entry.skip)}</div>` : ''}
+      `;
+      agentEntries.appendChild(el);
+      agentLog.scrollTop = agentLog.scrollHeight;
+      await sleep(350);
+    }
+
+    // Now build the graph
+    buildGraphData(result.nodes, result.edges);
+    graphData.nodes.forEach(n => revealedNodes.add(n.id));
+    Graph.graphData(graphData);
+    Graph.d3ReheatSimulation();
+
+    document.getElementById('stat-nodes').textContent = result.stats.total_nodes;
+    document.getElementById('stat-edges').textContent = result.stats.total_edges;
+    document.getElementById('stat-pp').textContent = result.nodes.filter(n => n.is_power_player).length;
+    document.getElementById('stats-panel').style.display = 'block';
+
+    // Summaries — typewriter effect
+    if (result.summaries?.length) {
+      document.getElementById('summary-content').innerHTML = '';
+      document.getElementById('summary-panel').style.display = 'block';
+      for (const s of result.summaries) {
+        const item = document.createElement('div');
+        item.className = 'summary-item';
+        item.innerHTML = `
+          <div class="summary-pair">${escapeHtml(s.start_name)} \u2194 ${escapeHtml(s.end_name)}</div>
+          <div class="summary-hops">${s.hops} hops</div>
+          <div class="summary-text"></div>`;
+        document.getElementById('summary-content').appendChild(item);
+        const textEl = item.querySelector('.summary-text');
+        await typewriter(textEl, s.summary, 12);
+        await sleep(300);
+      }
+    }
+
+    await sleep(1500);
+    refreshGraph();
+
+    // Zoom to fit
+    const xs = graphData.nodes.map(n => n.x||0), ys = graphData.nodes.map(n => n.y||0), zs = graphData.nodes.map(n => n.z||0);
+    const cx = xs.reduce((a,b)=>a+b,0)/xs.length, cy = ys.reduce((a,b)=>a+b,0)/ys.length, cz = zs.reduce((a,b)=>a+b,0)/zs.length;
+    Graph.cameraPosition({x:cx, y:cy, z:cz+500}, {x:cx, y:cy, z:cz}, 1200);
+
+  } catch(e) {
+    console.error('Connection finding error:', e);
   }
 
-  await animateCascade(byDepth);
   isAnimating = false;
 }
 
-async function infectViaJac(packageName) {
-  const resp = await fetch(`${JAC_API}/function/infect_package`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ package_name: packageName }),
-  });
-  const envelope = await resp.json();
-
-  // Unwrap Jac response envelope: {ok, data: {result: {...}}}
-  const result = envelope?.data?.result || envelope;
-
-  if (!result.success) {
-    console.warn('Infect failed:', result.error);
-    return infectClientSide(packageName);
-  }
-
-  // Group by depth
-  const byDepth = {};
-  for (const pkg of (result.compromised_packages || [])) {
-    const d = pkg.depth;
-    if (!byDepth[d]) byDepth[d] = [];
-    byDepth[d].push({ name: pkg.name, downloads: pkg.weekly_downloads });
-  }
-  return byDepth;
+// ── Mode Switching ──────────────────────────────
+function switchToGraph() {
+  document.getElementById('pp-grid-overlay').classList.add('hidden');
+  document.getElementById('controls').style.display = 'flex';
+  graphData = { nodes: [], links: [] };
+  nodeMap = {};
+  revealedNodes = new Set();
 }
 
-function infectClientSide(packageName) {
-  const byDepth = {};
-  const visited = new Set();
-  let queue = [packageName];
-  let depth = 0;
-
-  while (queue.length > 0) {
-    byDepth[depth] = queue.map(name => ({
-      name,
-      downloads: nodeMap[name] ? nodeMap[name].downloads : 0,
-    }));
-    const nextQueue = [];
-    for (const name of queue) {
-      visited.add(name);
-      const dependents = reverseDepMap[name] || [];
-      for (const dep of dependents) {
-        if (!visited.has(dep) && !nextQueue.includes(dep)) {
-          nextQueue.push(dep);
-        }
-      }
-    }
-    queue = nextQueue;
-    depth++;
-  }
-
-  return byDepth;
+function switchToGrid() {
+  document.getElementById('pp-grid-overlay').classList.remove('hidden');
+  document.getElementById('controls').style.display = 'none';
+  document.getElementById('stats-panel').style.display = 'none';
+  document.getElementById('summary-panel').style.display = 'none';
+  document.getElementById('search-panel').style.display = 'none';
+  document.getElementById('agent-log').style.display = 'none';
+  closeDetail();
+  clearGraph();
 }
 
-// ── Cascade Animation ───────────────────────────
-async function animateCascade(byDepth) {
-  const depths = Object.keys(byDepth).map(Number).sort((a, b) => a - b);
-  const logBox = document.getElementById('log-box');
-  const logEntries = document.getElementById('log-entries');
-  logBox.classList.add('active');
-  logEntries.innerHTML = '';
+function switchToSearch() {
+  document.getElementById('pp-grid-overlay').classList.add('hidden');
+  document.getElementById('search-panel').style.display = 'block';
+  document.getElementById('controls').style.display = 'flex';
+  document.getElementById('search-input').focus();
+}
 
-  for (const d of depths) {
-    const packages = byDepth[d] || [];
-    let depthDownloads = 0;
+// ── 3D Graph ────────────────────────────────────
+function initGraph() {
+  const container = document.getElementById('graph-container');
+  Graph = ForceGraph3D()(container)
+    .graphData(graphData)
+    .backgroundColor(BG_COLOR)
+    .nodeRelSize(2)
+    .nodeVal(n => { const b = NODE_SIZES[n.nodeType]||5; return n.isPowerPlayer ? b*2.5 : b; })
+    .nodeColor(n => n.isPowerPlayer ? PP_COLOR : (TYPE_COLORS[n.nodeType]||'#666'))
+    .nodeOpacity(0.9)
+    .nodeResolution(16)
+    .nodeLabel(() => '')
+    .linkColor(l => {
+      const s = typeof l.source==='object'?l.source:nodeMap[l.source];
+      const t = typeof l.target==='object'?l.target:nodeMap[l.target];
+      if (s&&t&&(s.isPowerPlayer||t.isPowerPlayer)) return 'rgba(255,215,0,0.45)';
+      return EDGE_COLORS[l.relType]||'rgba(100,120,160,0.25)';
+    })
+    .linkWidth(l => {
+      const s = typeof l.source==='object'?l.source:nodeMap[l.source];
+      const t = typeof l.target==='object'?l.target:nodeMap[l.target];
+      return (s&&t&&(s.isPowerPlayer||t.isPowerPlayer)) ? 1.5 : 0.4;
+    })
+    .linkOpacity(0.8)
+    .linkDirectionalParticles(l => {
+      const s = typeof l.source==='object'?l.source:nodeMap[l.source];
+      const t = typeof l.target==='object'?l.target:nodeMap[l.target];
+      return (s&&t&&(s.isPowerPlayer||t.isPowerPlayer)) ? 3 : 0;
+    })
+    .linkDirectionalParticleColor(() => PP_GLOW)
+    .linkDirectionalParticleWidth(1.5)
+    .linkDirectionalParticleSpeed(0.005)
+    .onNodeClick(n => n && showNodeDetail(n.id))
+    .onNodeHover(handleNodeHover)
+    .nodeThreeObject(n => {
+      if (!revealedNodes.has(n.id)) return false;
+      const show = n.isPowerPlayer || n.nodeType === 'entity' || n.nodeType === 'intermediary';
+      if (!show) return false;
+      const label = n.isPowerPlayer ? `\u2605 ${n.name}` : n.name;
+      const sprite = new SpriteText(label.length>30 ? label.slice(0,28)+'\u2026' : label);
+      sprite.textHeight = n.isPowerPlayer ? 4.5 : 2.8;
+      sprite.fontWeight = n.isPowerPlayer ? '700' : '400';
+      sprite.color = n.isPowerPlayer ? PP_GLOW : '#fff';
+      sprite.backgroundColor = n.isPowerPlayer ? 'rgba(160,30,30,0.85)' : 'rgba(0,20,40,0.7)';
+      sprite.padding = [2,4];
+      sprite.borderRadius = 3;
+      sprite.position.y = Math.cbrt((NODE_SIZES[n.nodeType]||5)*(n.isPowerPlayer?2.5:1))*2 + 4;
+      return sprite;
+    })
+    .nodeThreeObjectExtend(true)
+    .d3AlphaDecay(0.015)
+    .d3VelocityDecay(0.25)
+    .warmupTicks(0)
+    .cooldownTicks(Infinity);
 
-    for (const pkg of packages) {
-      const node = nodeMap[pkg.name];
-      if (node && !node.compromised) {
-        node.compromised = true;
-        node.depth = d;
-        compromisedCount++;
-        affectedDownloads += pkg.downloads || node.downloads || 0;
-        depthDownloads += pkg.downloads || node.downloads || 0;
-      }
-    }
+  Graph.d3Force('charge').strength(-150);
+  Graph.d3Force('link').distance(40);
+  Graph.cameraPosition({x:0,y:0,z:300});
+}
 
-    maxDepth = Math.max(maxDepth, d);
+// ── Search (secondary) ──────────────────────────
+let searchTimeout = null;
+document.getElementById('search-input').addEventListener('input', function(e) {
+  clearTimeout(searchTimeout);
+  const q = e.target.value.trim();
+  if (q.length < 2) { document.getElementById('search-results').style.display='none'; return; }
+  searchTimeout = setTimeout(() => searchNodes(q), 300);
+});
 
-    // Add log entries for this depth
-    const names = packages.map(p => p.name).slice(0, 8);
-    const remaining = packages.length - names.length;
-    let logHtml = names.map(n =>
-      `<span class="pkg-name">${n}</span>`
-    ).join(', ');
-    if (remaining > 0) logHtml += ` <span class="depth-tag">+${remaining} more</span>`;
-    logHtml = `<span class="depth-tag">d${d}</span> ${logHtml}`;
+async function searchNodes(query) {
+  try {
+    const resp = await fetch(`${JAC_API}/function/search`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({query, limit:20}),
+    });
+    const env = await resp.json();
+    const r = env?.data?.result;
+    if (!r?.success) return;
+    const container = document.getElementById('search-results');
+    container.innerHTML = r.results.map(n => {
+      const pp = n.is_power_player ? '<span class="sr-pp">\u2605</span>' : '';
+      return `<div class="search-result" onclick="investigateNode('${n.node_id}')">${pp}<span class="sr-name">${escapeHtml(n.name)}</span><span class="sr-type ${n.node_type}">${n.node_type}</span></div>`;
+    }).join('') || '<div style="padding:6px;color:var(--text-dim);font-size:11px">No results</div>';
+    container.style.display = 'block';
+  } catch(e) { console.warn('Search failed:', e); }
+}
 
-    const entry = document.createElement('div');
-    entry.className = 'log-entry';
-    entry.innerHTML = logHtml;
-    entry.style.animationDelay = '0s';
-    logEntries.prepend(entry);
+async function investigateNode(nodeId) {
+  if (isAnimating) return;
+  isAnimating = true;
+  document.getElementById('search-results').style.display = 'none';
+  closeDetail();
 
-    // Trim old entries
-    while (logEntries.children.length > 12) {
-      logEntries.removeChild(logEntries.lastChild);
-    }
+  graphData = { nodes:[], links:[] }; nodeMap = {}; revealedNodes = new Set();
 
-    // Update stats
-    updateStats();
+  try {
+    const resp = await fetch(`${JAC_API}/function/investigate`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({node_id:nodeId, max_depth:4, max_nodes:300}),
+    });
+    const env = await resp.json();
+    const result = env?.data?.result;
+    if (!result?.success) { isAnimating=false; return; }
 
-    // Re-render graph
+    buildGraphData(result.nodes, result.edges);
+    graphData.nodes.forEach(n => revealedNodes.add(n.id));
+    Graph.graphData(graphData);
+    Graph.d3ReheatSimulation();
+
+    document.getElementById('stat-nodes').textContent = result.nodes.length;
+    document.getElementById('stat-edges').textContent = result.edges.length;
+    document.getElementById('stat-pp').textContent = (result.power_players_found||[]).length;
+    document.getElementById('stats-panel').style.display = 'block';
+
+    await sleep(2000);
     refreshGraph();
 
-    // Wait before next depth
-    await sleep(CASCADE_DELAY);
-  }
+    const c = graphData.nodes.find(n => n.id === nodeId);
+    if (c?.x !== undefined) Graph.cameraPosition({x:c.x,y:c.y,z:(c.z||0)+400},{x:c.x,y:c.y,z:c.z||0},1000);
+  } catch(e) { console.error('Investigation error:', e); }
+  isAnimating = false;
+}
 
-  // Final camera pan to infection center
-  panToInfection();
+// ── Graph Helpers ───────────────────────────────
+function buildGraphData(nodes, edges) {
+  graphData.nodes = nodes.map(n => ({
+    id:n.node_id, name:n.name, nodeType:n.node_type, countries:n.countries,
+    sourceId:n.source_id, jurisdiction:n.jurisdiction||'',
+    isPowerPlayer:n.is_power_player, powerPlayerTitle:n.power_player_title||'',
+    hop:n.hop,
+  }));
+  graphData.links = edges.map(e => ({
+    source:e.source, target:e.target, relType:e.rel_type, link:e.link||'', sourceId:e.source_id||'',
+  }));
+  nodeMap = {};
+  graphData.nodes.forEach(n => nodeMap[n.id] = n);
 }
 
 function refreshGraph() {
@@ -694,108 +1125,120 @@ function refreshGraph() {
   Graph.linkColor(Graph.linkColor());
   Graph.linkWidth(Graph.linkWidth());
   Graph.linkDirectionalParticles(Graph.linkDirectionalParticles());
-
-  // Update sprite labels for infected nodes
   Graph.nodeThreeObject(Graph.nodeThreeObject());
 }
 
-function panToInfection() {
-  const infected = graphData.nodes.filter(n => n.compromised);
-  if (infected.length === 0 || !Graph) return;
-
-  const avg = { x: 0, y: 0, z: 0 };
-  infected.forEach(n => {
-    avg.x += n.x || 0;
-    avg.y += n.y || 0;
-    avg.z += n.z || 0;
-  });
-  avg.x /= infected.length;
-  avg.y /= infected.length;
-  avg.z /= infected.length;
-
-  Graph.cameraPosition(
-    { x: avg.x, y: avg.y, z: avg.z + 400 },
-    avg,
-    1500
-  );
+function clearGraph() {
+  graphData = { nodes:[], links:[] }; nodeMap = {}; revealedNodes = new Set();
+  if (Graph) Graph.graphData(graphData);
+  document.getElementById('stats-panel').style.display = 'none';
+  document.getElementById('summary-panel').style.display = 'none';
+  document.getElementById('agent-log').style.display = 'none';
+  document.getElementById('search-panel').style.display = 'none';
+  closeDetail();
 }
 
-function updateStats() {
-  const compEl = document.getElementById('stat-compromised');
-  const dlEl = document.getElementById('stat-downloads');
-  const depthEl = document.getElementById('stat-depth');
-
-  compEl.textContent = compromisedCount;
-  compEl.className = compromisedCount > 0 ? 'stat-value danger' : 'stat-value';
-
-  dlEl.textContent = formatDownloads(affectedDownloads);
-  dlEl.className = affectedDownloads > 0 ? 'stat-value warn' : 'stat-value';
-
-  depthEl.textContent = maxDepth >= 0 ? maxDepth : '-';
+function handleNodeHover(node) {
+  const tt = document.getElementById('node-tooltip');
+  document.getElementById('graph-container').style.cursor = node ? 'pointer' : 'default';
+  if (!node) { tt.style.display='none'; return; }
+  document.getElementById('tooltip-name').textContent = node.name;
+  let d = `Type: <span>${node.nodeType}</span>`;
+  if (node.countries) d += `<br>Countries: <span>${node.countries}</span>`;
+  if (node.sourceId) d += `<br>Source: <span>${node.sourceId}</span>`;
+  if (node.isPowerPlayer) d += `<br><span style="color:${PP_GLOW}">\u2605 ${node.powerPlayerTitle}</span>`;
+  document.getElementById('tooltip-detail').innerHTML = d;
+  tt.style.display = 'block';
+  document.addEventListener('mousemove', positionTooltip);
 }
 
-// ── Reset ───────────────────────────────────────
-async function resetGraph() {
-  // Reset client state
-  graphData.nodes.forEach(n => {
-    n.compromised = false;
-    n.depth = -1;
-  });
-  compromisedCount = 0;
-  affectedDownloads = 0;
-  maxDepth = 0;
+function positionTooltip(e) {
+  const tt = document.getElementById('node-tooltip');
+  if (tt.style.display==='none') { document.removeEventListener('mousemove',positionTooltip); return; }
+  tt.style.left = (e.clientX+14)+'px';
+  tt.style.top = (e.clientY-8)+'px';
+}
 
-  document.getElementById('log-box').classList.remove('active');
-  document.getElementById('log-entries').innerHTML = '';
-  updateStats();
-  refreshGraph();
-
-  // Reset Jac backend
-  if (jacAvailable) {
-    try {
-      await fetch(`${JAC_API}/function/reset_graph`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-    } catch (e) {
-      console.warn('Reset API failed:', e);
+async function showNodeDetail(nodeId) {
+  try {
+    const resp = await fetch(`${JAC_API}/function/get_node_detail`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({node_id:nodeId}),
+    });
+    const env = await resp.json();
+    const r = env?.data?.result;
+    if (!r?.success) return;
+    const n = r.node;
+    let h = '';
+    if (n.is_power_player) h += `<div class="pp-badge">\u2605 ${escapeHtml(n.power_player_title)}</div><br>`;
+    h += `<div class="detail-name">${escapeHtml(n.name)}</div><div class="detail-meta">`;
+    h += `Type: <span class="sr-type ${n.node_type}" style="display:inline">${n.node_type}</span><br>`;
+    if (n.countries) h += `Countries: <span>${escapeHtml(n.countries)}</span><br>`;
+    if (n.jurisdiction) h += `Jurisdiction: <span>${escapeHtml(n.jurisdiction)}</span><br>`;
+    h += `Source: <span>${escapeHtml(n.leak_name)}</span></div>`;
+    h += `<a class="detail-link" href="${n.icij_url}" target="_blank">View on ICIJ \u2197</a>`;
+    if (n.connections?.length) {
+      h += `<div style="margin-top:10px"><div class="panel-title" style="color:var(--officer)">Connections (${n.connections.length})</div><div class="detail-connections">`;
+      for (const c of n.connections.slice(0,25)) {
+        h += `<div style="margin-bottom:3px"><span class="conn-type">${c.rel_type.replace(/_/g,' ')}</span> <span style="color:${TYPE_COLORS[c.node_type]||'#666'};cursor:pointer" onclick="showNodeDetail('${c.node_id}')">${escapeHtml(truncate(c.name,35))}</span></div>`;
+      }
+      if (n.connections.length>25) h += `<div style="color:var(--text-dim);margin-top:3px">+${n.connections.length-25} more</div>`;
+      h += '</div></div>';
     }
-  }
+    document.getElementById('detail-content').innerHTML = h;
+    const p = document.getElementById('detail-panel');
+    p.style.display = 'block';
+    requestAnimationFrame(() => p.classList.add('visible'));
+  } catch(e) { console.warn('Detail failed:', e); }
 }
 
-// ── Search ──────────────────────────────────────
-document.getElementById('search-input').addEventListener('input', function (e) {
-  const query = e.target.value.toLowerCase().trim();
-  if (!query || !Graph) return;
-
-  const match = graphData.nodes.find(n => n.name.toLowerCase() === query);
-  if (match && match.x !== undefined) {
-    Graph.cameraPosition(
-      { x: match.x, y: match.y, z: match.z + 150 },
-      { x: match.x, y: match.y, z: match.z },
-      800
-    );
-  }
-});
-
-document.getElementById('search-input').addEventListener('keydown', function (e) {
-  if (e.key === 'Enter') {
-    const query = e.target.value.toLowerCase().trim();
-    const match = graphData.nodes.find(n => n.name.toLowerCase() === query);
-    if (match) {
-      handleNodeClick(match);
-      e.target.value = '';
-    }
-  }
-});
-
-// ── Helpers ─────────────────────────────────────
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
+function closeDetail() {
+  const p = document.getElementById('detail-panel');
+  p.classList.remove('visible');
+  setTimeout(() => p.style.display='none', 200);
 }
 
-// ── Boot ────────────────────────────────────────
+// ── Demo Scenarios ──────────────────────────────
+const SCENARIOS = {
+  annan: ['kojo-annan', 'ang-vong-vathana', 'mohd-nazifuddin-bin-mohd-najib', 'james-ibori'],
+  heads: ['ahmad-ali-al-mirghani', 'ayad-allawi', 'khalifa-bin-zayed-bin-sultan-al-nahyan'],
+  putin: ['alfredo-cristiani', 'hassan-diab', 'svetlana-krivonogikh'],
+};
+
+function loadScenario(key) {
+  const slugs = SCENARIOS[key];
+  if (!slugs) return;
+  selectedPPs.clear();
+  for (const slug of slugs) {
+    const pp = allPPs.find(p => p.slug === slug);
+    if (pp) selectedPPs.set(slug, pp);
+  }
+  updateGridSelection();
+  findConnections();
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function typewriter(el, text, msPerChar) {
+  const chars = text.split('');
+  let i = 0;
+  return new Promise(resolve => {
+    const interval = setInterval(() => {
+      // Add a few chars at a time for natural speed
+      const chunk = Math.floor(Math.random() * 3) + 1;
+      el.textContent += chars.slice(i, i + chunk).join('');
+      i += chunk;
+      if (i >= chars.length) {
+        el.textContent = text;
+        clearInterval(interval);
+        resolve();
+      }
+    }, msPerChar);
+  });
+}
+function escapeHtml(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+function truncate(s,m) { return (!s||s.length<=m) ? s : s.slice(0,m-1)+'\u2026'; }
+
 init();
 </script>
 </body>
