@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>npm Supply Chain Attack Simulator</title>
+<script src="//cdn.jsdelivr.net/npm/three@0.160.1/build/three.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/three-spritetext@1.9.5/dist/three-spritetext.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/3d-force-graph@1.74.3/dist/3d-force-graph.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a0f;
+  color: #e0e0e0;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+#graph-container { width: 100vw; height: 100vh; }
+
+/* ── Stats overlay ─────────────────────────────── */
+#stats-overlay {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.stats-box {
+  background: rgba(6, 8, 18, 0.85);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px 24px;
+  backdrop-filter: blur(16px);
+  min-width: 280px;
+}
+
+.stats-title {
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: rgba(0, 212, 255, 0.6);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 300;
+  color: #ffffff;
+}
+
+.stat-value.danger {
+  color: #ff0040;
+  text-shadow: 0 0 20px rgba(255, 0, 64, 0.5);
+}
+
+.stat-value.warn {
+  color: #ffaa00;
+}
+
+/* ── Infection log ──────────────────────────────── */
+#infection-log {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 100;
+  pointer-events: none;
+  max-width: 320px;
+}
+
+.log-box {
+  background: rgba(6, 8, 18, 0.85);
+  border: 1px solid rgba(255, 0, 64, 0.15);
+  border-radius: 12px;
+  padding: 16px 20px;
+  backdrop-filter: blur(16px);
+  max-height: 300px;
+  overflow: hidden;
+  display: none;
+}
+
+.log-box.active { display: block; }
+
+.log-title {
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: rgba(255, 0, 64, 0.6);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.log-entries {
+  font-size: 11px;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.log-entry {
+  opacity: 0;
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.log-entry .pkg-name {
+  color: #ff6644;
+}
+
+.log-entry .depth-tag {
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 9px;
+  margin-left: 6px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Controls ──────────────────────────────────── */
+#controls {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.ctrl-btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(6, 8, 18, 0.8);
+  color: rgba(255, 255, 255, 0.75);
+  padding: 10px 20px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(12px);
+}
+
+.ctrl-btn:hover {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: rgba(0, 212, 255, 0.4);
+  color: #00d4ff;
+}
+
+.ctrl-btn.danger:hover {
+  background: rgba(255, 0, 64, 0.1);
+  border-color: rgba(255, 0, 64, 0.4);
+  color: #ff0040;
+}
+
+.ctrl-btn:active { transform: scale(0.97); }
+
+#search-input {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(6, 8, 18, 0.8);
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-family: inherit;
+  width: 220px;
+  outline: none;
+  backdrop-filter: blur(12px);
+  transition: border-color 0.2s;
+}
+
+#search-input::placeholder { color: rgba(255,255,255,0.25); }
+#search-input:focus { border-color: rgba(0, 212, 255, 0.5); }
+
+/* ── Title badge ───────────────────────────────── */
+#title-badge {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  text-align: center;
+  pointer-events: none;
+}
+
+.title-main {
+  font-size: 13px;
+  letter-spacing: 6px;
+  color: rgba(0, 212, 255, 0.5);
+  text-transform: uppercase;
+}
+
+.title-sub {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: rgba(255, 255, 255, 0.2);
+  margin-top: 4px;
+}
+
+/* ── Loading ───────────────────────────────────── */
+#loading {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #0a0a0f;
+  gap: 20px;
+}
+
+.loading-text {
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: rgba(0, 212, 255, 0.5);
+  text-transform: uppercase;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 2px solid rgba(0, 212, 255, 0.1);
+  border-top-color: #00d4ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Tooltip ───────────────────────────────────── */
+#node-tooltip {
+  position: fixed;
+  z-index: 200;
+  pointer-events: none;
+  background: rgba(6, 8, 18, 0.92);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  border-radius: 10px;
+  padding: 12px 16px;
+  backdrop-filter: blur(16px);
+  font-size: 11px;
+  display: none;
+  max-width: 260px;
+}
+
+.tooltip-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.tooltip-detail {
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.7;
+}
+
+.tooltip-detail span { color: rgba(255, 255, 255, 0.75); }
+
+/* Hide 3d-force-graph default nav instructions */
+.graph-nav-info, .graph-info-msg { display: none !important; }
+.scene-nav-info { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Loading npm ecosystem graph...</div>
+</div>
+
+<div id="graph-container"></div>
+
+<div id="stats-overlay">
+  <div class="stats-box">
+    <div class="stats-title">Ecosystem Status</div>
+    <div class="stat-row">
+      <span class="stat-label">Total Packages</span>
+      <span class="stat-value" id="stat-total">-</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Compromised</span>
+      <span class="stat-value" id="stat-compromised">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Downloads Affected</span>
+      <span class="stat-value" id="stat-downloads">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Attack Depth</span>
+      <span class="stat-value" id="stat-depth">-</span>
+    </div>
+  </div>
+</div>
+
+<div id="infection-log">
+  <div class="log-box" id="log-box">
+    <div class="log-title">Infection Cascade</div>
+    <div class="log-entries" id="log-entries"></div>
+  </div>
+</div>
+
+<div id="node-tooltip">
+  <div class="tooltip-name" id="tooltip-name"></div>
+  <div class="tooltip-detail" id="tooltip-detail"></div>
+</div>
+
+<div id="title-badge">
+  <div class="title-main">Supply Chain Attack Simulator</div>
+  <div class="title-sub">Click any package to compromise it</div>
+</div>
+
+<div id="controls">
+  <input type="text" id="search-input" placeholder="Search packages..." />
+  <button class="ctrl-btn danger" id="btn-reset" onclick="resetGraph()">Reset</button>
+</div>
+
+<script>
+// ── Config ──────────────────────────────────────
+const JAC_API = 'http://localhost:8000';
+const DATA_URL = '../data/npm_graph.json';
+const CASCADE_DELAY = 350;
+
+// ── State ───────────────────────────────────────
+let Graph = null;
+let graphData = { nodes: [], links: [] };
+let nodeMap = {};
+let reverseDepMap = {};
+let jacAvailable = false;
+let isAnimating = false;
+let compromisedCount = 0;
+let affectedDownloads = 0;
+let maxDepth = 0;
+
+// ── Color palette ───────────────────────────────
+const COLORS = {
+  healthy: '#00d4ff',
+  healthyDim: '#0088aa',
+  depths: ['#ff0040', '#ff3300', '#ff6600', '#ff8800', '#ffaa00', '#ffcc44'],
+  link: 'rgba(80, 120, 180, 0.35)',
+  linkInfected: '#ff0040',
+  bg: '#06080f',
+};
+
+function getDepthColor(depth) {
+  if (depth < 0) return COLORS.healthy;
+  return COLORS.depths[Math.min(depth, COLORS.depths.length - 1)];
+}
+
+function formatDownloads(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return String(n);
+}
+
+// ── Initialize ──────────────────────────────────
+async function init() {
+  // 1. Load graph data
+  let rawData;
+  try {
+    const resp = await fetch(DATA_URL);
+    rawData = await resp.json();
+  } catch (e) {
+    console.error('Failed to load graph data:', e);
+    document.querySelector('.loading-text').textContent = 'Failed to load graph data';
+    return;
+  }
+
+  graphData = rawData.graph;
+
+  // Mark all nodes as healthy initially
+  graphData.nodes.forEach(n => {
+    n.compromised = false;
+    n.depth = -1;
+    n.__initialVal = n.val;
+    nodeMap[n.id] = n;
+  });
+
+  // Build reverse dependency map (who depends on X?)
+  graphData.links.forEach(l => {
+    const src = typeof l.source === 'string' ? l.source : l.source.id;
+    const tgt = typeof l.target === 'string' ? l.target : l.target.id;
+    // src depends on tgt, so tgt's dependents include src
+    if (!reverseDepMap[tgt]) reverseDepMap[tgt] = [];
+    reverseDepMap[tgt].push(src);
+  });
+
+  // 2. Try to build graph in Jac backend
+  try {
+    const resp = await fetch(`${JAC_API}/function/build_graph`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ packages: rawData.packages }),
+    });
+    if (resp.ok) {
+      jacAvailable = true;
+      console.log('Jac backend connected');
+    }
+  } catch (e) {
+    console.warn('Jac API unavailable, using client-side simulation');
+  }
+
+  // 3. Render graph
+  document.getElementById('stat-total').textContent = graphData.nodes.length;
+  initGraph();
+  document.getElementById('loading').style.display = 'none';
+}
+
+// ── Node sizing ─────────────────────────────────
+function getNodeVal(n) {
+  const dl = n.downloads || 1000;
+  // Power scale: big packages are dramatically larger
+  return Math.pow(dl / 1000, 0.35);
+}
+
+// ── 3D Graph Setup ──────────────────────────────
+function initGraph() {
+  const container = document.getElementById('graph-container');
+  const NODE_REL_SIZE = 2;
+
+  Graph = ForceGraph3D()(container)
+    .graphData(graphData)
+    .backgroundColor(COLORS.bg)
+    .nodeRelSize(NODE_REL_SIZE)
+    .nodeVal(n => {
+      const base = getNodeVal(n);
+      return n.compromised ? base * 1.3 : base;
+    })
+    .nodeColor(n => n.compromised ? getDepthColor(n.depth) : COLORS.healthy)
+    .nodeOpacity(0.88)
+    .nodeResolution(16)
+    .nodeLabel(() => '') // We handle tooltips manually
+    .linkColor(l => {
+      const src = typeof l.source === 'object' ? l.source : nodeMap[l.source];
+      const tgt = typeof l.target === 'object' ? l.target : nodeMap[l.target];
+      if (src && tgt && src.compromised && tgt.compromised) return COLORS.linkInfected;
+      return COLORS.link;
+    })
+    .linkWidth(l => {
+      const src = typeof l.source === 'object' ? l.source : nodeMap[l.source];
+      const tgt = typeof l.target === 'object' ? l.target : nodeMap[l.target];
+      if (src && tgt && src.compromised && tgt.compromised) return 1.5;
+      return 0.6;
+    })
+    .linkOpacity(0.8)
+    .linkDirectionalParticles(l => {
+      const src = typeof l.source === 'object' ? l.source : nodeMap[l.source];
+      const tgt = typeof l.target === 'object' ? l.target : nodeMap[l.target];
+      if (src && tgt && src.compromised && tgt.compromised) return 3;
+      return 0;
+    })
+    .linkDirectionalParticleColor(() => '#ff4444')
+    .linkDirectionalParticleWidth(1.5)
+    .linkDirectionalParticleSpeed(0.006)
+    .onNodeClick(handleNodeClick)
+    .onNodeHover(handleNodeHover)
+    .nodeThreeObject(n => {
+      if (n.downloads > 5_000_000) {
+        const sprite = new SpriteText(n.name);
+        sprite.color = n.compromised ? '#ffffff' : '#ffffff';
+        sprite.textHeight = 3.5;
+        sprite.fontWeight = '600';
+        sprite.backgroundColor = n.compromised
+          ? 'rgba(180, 0, 30, 0.75)'
+          : 'rgba(0, 40, 60, 0.75)';
+        sprite.padding = [2, 4];
+        sprite.borderRadius = 3;
+        // Position label above the node sphere
+        const r = Math.cbrt(getNodeVal(n)) * NODE_REL_SIZE;
+        sprite.position.y = r + 4;
+        return sprite;
+      }
+      return false;
+    })
+    .nodeThreeObjectExtend(true)
+    .d3AlphaDecay(0.03)
+    .d3VelocityDecay(0.3)
+    .warmupTicks(80)
+    .cooldownTicks(40);
+
+  // Hide default nav info text
+  const infoEl = container.querySelector('.graph-info-msg');
+  if (infoEl) infoEl.style.display = 'none';
+  const navEl = container.querySelector('.graph-nav-info');
+  if (navEl) navEl.style.display = 'none';
+
+  // Slight camera offset
+  setTimeout(() => {
+    Graph.cameraPosition({ x: 0, y: 0, z: 900 });
+  }, 100);
+}
+
+// ── Node Interactions ───────────────────────────
+function handleNodeClick(node) {
+  if (!node || isAnimating) return;
+  if (node.compromised) return; // Already infected
+
+  infectPackage(node.id);
+}
+
+function handleNodeHover(node, prevNode) {
+  const tooltip = document.getElementById('node-tooltip');
+  const container = document.getElementById('graph-container');
+  container.style.cursor = node ? 'pointer' : 'default';
+
+  if (!node) {
+    tooltip.style.display = 'none';
+    return;
+  }
+
+  document.getElementById('tooltip-name').textContent = node.name;
+  let detail = `Downloads: <span>${formatDownloads(node.downloads)}/week</span>`;
+  if (node.compromised) {
+    detail += `<br>Status: <span style="color:${getDepthColor(node.depth)}">COMPROMISED (depth ${node.depth})</span>`;
+  } else {
+    detail += `<br>Status: <span style="color:#00d4ff">Healthy</span>`;
+  }
+  document.getElementById('tooltip-detail').innerHTML = detail;
+
+  tooltip.style.display = 'block';
+  // Position near cursor
+  document.addEventListener('mousemove', positionTooltip);
+}
+
+function positionTooltip(e) {
+  const tooltip = document.getElementById('node-tooltip');
+  if (tooltip.style.display === 'none') {
+    document.removeEventListener('mousemove', positionTooltip);
+    return;
+  }
+  tooltip.style.left = (e.clientX + 16) + 'px';
+  tooltip.style.top = (e.clientY - 10) + 'px';
+}
+
+// ── Infection Logic ─────────────────────────────
+async function infectPackage(packageName) {
+  isAnimating = true;
+  let byDepth = {};
+
+  if (jacAvailable) {
+    try {
+      byDepth = await infectViaJac(packageName);
+    } catch (e) {
+      console.warn('Jac API failed, falling back to client-side:', e);
+      byDepth = infectClientSide(packageName);
+    }
+  } else {
+    byDepth = infectClientSide(packageName);
+  }
+
+  await animateCascade(byDepth);
+  isAnimating = false;
+}
+
+async function infectViaJac(packageName) {
+  const resp = await fetch(`${JAC_API}/function/infect_package`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ package_name: packageName }),
+  });
+  const envelope = await resp.json();
+
+  // Unwrap Jac response envelope: {ok, data: {result: {...}}}
+  const result = envelope?.data?.result || envelope;
+
+  if (!result.success) {
+    console.warn('Infect failed:', result.error);
+    return infectClientSide(packageName);
+  }
+
+  // Group by depth
+  const byDepth = {};
+  for (const pkg of (result.compromised_packages || [])) {
+    const d = pkg.depth;
+    if (!byDepth[d]) byDepth[d] = [];
+    byDepth[d].push({ name: pkg.name, downloads: pkg.weekly_downloads });
+  }
+  return byDepth;
+}
+
+function infectClientSide(packageName) {
+  const byDepth = {};
+  const visited = new Set();
+  let queue = [packageName];
+  let depth = 0;
+
+  while (queue.length > 0) {
+    byDepth[depth] = queue.map(name => ({
+      name,
+      downloads: nodeMap[name] ? nodeMap[name].downloads : 0,
+    }));
+    const nextQueue = [];
+    for (const name of queue) {
+      visited.add(name);
+      const dependents = reverseDepMap[name] || [];
+      for (const dep of dependents) {
+        if (!visited.has(dep) && !nextQueue.includes(dep)) {
+          nextQueue.push(dep);
+        }
+      }
+    }
+    queue = nextQueue;
+    depth++;
+  }
+
+  return byDepth;
+}
+
+// ── Cascade Animation ───────────────────────────
+async function animateCascade(byDepth) {
+  const depths = Object.keys(byDepth).map(Number).sort((a, b) => a - b);
+  const logBox = document.getElementById('log-box');
+  const logEntries = document.getElementById('log-entries');
+  logBox.classList.add('active');
+  logEntries.innerHTML = '';
+
+  for (const d of depths) {
+    const packages = byDepth[d] || [];
+    let depthDownloads = 0;
+
+    for (const pkg of packages) {
+      const node = nodeMap[pkg.name];
+      if (node && !node.compromised) {
+        node.compromised = true;
+        node.depth = d;
+        compromisedCount++;
+        affectedDownloads += pkg.downloads || node.downloads || 0;
+        depthDownloads += pkg.downloads || node.downloads || 0;
+      }
+    }
+
+    maxDepth = Math.max(maxDepth, d);
+
+    // Add log entries for this depth
+    const names = packages.map(p => p.name).slice(0, 8);
+    const remaining = packages.length - names.length;
+    let logHtml = names.map(n =>
+      `<span class="pkg-name">${n}</span>`
+    ).join(', ');
+    if (remaining > 0) logHtml += ` <span class="depth-tag">+${remaining} more</span>`;
+    logHtml = `<span class="depth-tag">d${d}</span> ${logHtml}`;
+
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = logHtml;
+    entry.style.animationDelay = '0s';
+    logEntries.prepend(entry);
+
+    // Trim old entries
+    while (logEntries.children.length > 12) {
+      logEntries.removeChild(logEntries.lastChild);
+    }
+
+    // Update stats
+    updateStats();
+
+    // Re-render graph
+    refreshGraph();
+
+    // Wait before next depth
+    await sleep(CASCADE_DELAY);
+  }
+
+  // Final camera pan to infection center
+  panToInfection();
+}
+
+function refreshGraph() {
+  if (!Graph) return;
+  Graph.nodeColor(Graph.nodeColor());
+  Graph.nodeVal(Graph.nodeVal());
+  Graph.linkColor(Graph.linkColor());
+  Graph.linkWidth(Graph.linkWidth());
+  Graph.linkDirectionalParticles(Graph.linkDirectionalParticles());
+
+  // Update sprite labels for infected nodes
+  Graph.nodeThreeObject(Graph.nodeThreeObject());
+}
+
+function panToInfection() {
+  const infected = graphData.nodes.filter(n => n.compromised);
+  if (infected.length === 0 || !Graph) return;
+
+  const avg = { x: 0, y: 0, z: 0 };
+  infected.forEach(n => {
+    avg.x += n.x || 0;
+    avg.y += n.y || 0;
+    avg.z += n.z || 0;
+  });
+  avg.x /= infected.length;
+  avg.y /= infected.length;
+  avg.z /= infected.length;
+
+  Graph.cameraPosition(
+    { x: avg.x, y: avg.y, z: avg.z + 400 },
+    avg,
+    1500
+  );
+}
+
+function updateStats() {
+  const compEl = document.getElementById('stat-compromised');
+  const dlEl = document.getElementById('stat-downloads');
+  const depthEl = document.getElementById('stat-depth');
+
+  compEl.textContent = compromisedCount;
+  compEl.className = compromisedCount > 0 ? 'stat-value danger' : 'stat-value';
+
+  dlEl.textContent = formatDownloads(affectedDownloads);
+  dlEl.className = affectedDownloads > 0 ? 'stat-value warn' : 'stat-value';
+
+  depthEl.textContent = maxDepth >= 0 ? maxDepth : '-';
+}
+
+// ── Reset ───────────────────────────────────────
+async function resetGraph() {
+  // Reset client state
+  graphData.nodes.forEach(n => {
+    n.compromised = false;
+    n.depth = -1;
+  });
+  compromisedCount = 0;
+  affectedDownloads = 0;
+  maxDepth = 0;
+
+  document.getElementById('log-box').classList.remove('active');
+  document.getElementById('log-entries').innerHTML = '';
+  updateStats();
+  refreshGraph();
+
+  // Reset Jac backend
+  if (jacAvailable) {
+    try {
+      await fetch(`${JAC_API}/function/reset_graph`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+    } catch (e) {
+      console.warn('Reset API failed:', e);
+    }
+  }
+}
+
+// ── Search ──────────────────────────────────────
+document.getElementById('search-input').addEventListener('input', function (e) {
+  const query = e.target.value.toLowerCase().trim();
+  if (!query || !Graph) return;
+
+  const match = graphData.nodes.find(n => n.name.toLowerCase() === query);
+  if (match && match.x !== undefined) {
+    Graph.cameraPosition(
+      { x: match.x, y: match.y, z: match.z + 150 },
+      { x: match.x, y: match.y, z: match.z },
+      800
+    );
+  }
+});
+
+document.getElementById('search-input').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    const query = e.target.value.toLowerCase().trim();
+    const match = graphData.nodes.find(n => n.name.toLowerCase() === query);
+    if (match) {
+      handleNodeClick(match);
+      e.target.value = '';
+    }
+  }
+});
+
+// ── Helpers ─────────────────────────────────────
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+// ── Boot ────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
