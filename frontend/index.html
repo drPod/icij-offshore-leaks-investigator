@@ -765,7 +765,7 @@ body {
 </div>
 
 <script>
-const JAC_API = 'http://localhost:8000';
+const JAC_API = window.location.hostname === 'localhost' ? 'http://localhost:8000' : '';
 
 const TYPE_COLORS = { entity:'#c9a227', officer:'#00b4d8', address:'#48bb78', intermediary:'#b44ddb', other:'#666' };
 const EDGE_COLORS = { officer_of:'rgba(0,180,216,0.45)', registered_address:'rgba(72,187,120,0.45)', intermediary_of:'rgba(180,77,219,0.45)' };

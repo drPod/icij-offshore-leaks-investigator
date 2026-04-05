@@ -1,0 +1,9 @@
+{
+  "buildCommand": "",
+  "outputDirectory": ".",
+  "framework": null,
+  "rewrites": [
+    { "source": "/function/:path*", "destination": "https://icij-offshore-leaks-production.up.railway.app/function/:path*" },
+    { "source": "/walker/:path*", "destination": "https://icij-offshore-leaks-production.up.railway.app/walker/:path*" }
+  ]
+}
