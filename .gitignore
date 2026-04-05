@@ -34,3 +34,4 @@ data/supply_chain.db
 
 # Playwright MCP artifacts
 .playwright-mcp/
+.vercel
