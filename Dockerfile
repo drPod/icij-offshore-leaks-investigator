@@ -14,5 +14,5 @@ RUN python scripts/download_icij.py && python scripts/ingest_icij.py
 # Expose port
 EXPOSE 8000
 
-# Start Jac server
-CMD ["jac", "start", "main.jac"]
+# Start Jac server on Railway's assigned port
+CMD jac start main.jac --port ${PORT:-8000}
