@@ -684,15 +684,20 @@ body {
     <div class="grid-subtitle">Select two or more Power Players, or try a scenario below</div>
 
     <div class="demo-scenarios">
+      <div class="demo-card" onclick="loadScenario('mossack')">
+        <div class="demo-label">4 Continents</div>
+        <div class="demo-title">The Mossack Fonseca Web</div>
+        <div class="demo-desc">China president's brother-in-law, a UK MP, Kazakhstan's deputy mayor, and a UN Secretary General's son — linked through Mossack Fonseca</div>
+      </div>
+      <div class="demo-card" onclick="loadScenario('g20')">
+        <div class="demo-label">4 G20 Nations</div>
+        <div class="demo-title">Canada · Japan · Brazil · India</div>
+        <div class="demo-desc">Four leaders from four G20 countries connected through Bermuda and Cayman Islands entities</div>
+      </div>
       <div class="demo-card" onclick="loadScenario('annan')">
         <div class="demo-label">4 Power Players</div>
         <div class="demo-title">The Annan Network</div>
-        <div class="demo-desc">UN Secretary General's son, Cambodia's justice minister, Malaysian PM's son, and a Nigerian governor — all sharing offshore infrastructure</div>
-      </div>
-      <div class="demo-card" onclick="loadScenario('heads')">
-        <div class="demo-label">3 Heads of State</div>
-        <div class="demo-title">Sudan · Iraq · UAE</div>
-        <div class="demo-desc">Three heads of state connected through a single London law firm and BVI shell companies</div>
+        <div class="demo-desc">UN Secretary General's son, Cambodia's justice minister, Malaysian PM's son, and a Nigerian governor sharing offshore infrastructure</div>
       </div>
       <div class="demo-card" onclick="loadScenario('putin')">
         <div class="demo-label">Putin's Circle</div>
@@ -1200,8 +1205,9 @@ function closeDetail() {
 
 // ── Demo Scenarios ──────────────────────────────
 const SCENARIOS = {
+  mossack: ['deng-jiagui', 'michael-mates', 'nurali-aliyev', 'kojo-annan'],
+  g20: ['paul-martin', 'yukio-hatoyama', 'blairo-borges-maggi', 'jayant-sinha'],
   annan: ['kojo-annan', 'ang-vong-vathana', 'mohd-nazifuddin-bin-mohd-najib', 'james-ibori'],
-  heads: ['ahmad-ali-al-mirghani', 'ayad-allawi', 'khalifa-bin-zayed-bin-sultan-al-nahyan'],
   putin: ['alfredo-cristiani', 'hassan-diab', 'svetlana-krivonogikh'],
 };
 
