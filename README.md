@@ -1,4 +1,4 @@
-# Offshore Leaks Investigator
+# Tracelight
 
 > Pick two world leaders. Watch an AI agent trace the hidden offshore connections between them through shell companies, intermediaries, and tax havens — all backed by real ICIJ data.
 
@@ -65,8 +65,8 @@ The PathFinder walker narrates every decision:
 
 ```bash
 # Clone
-git clone https://github.com/drPod/icij-offshore-leaks-investigator.git
-cd icij-offshore-leaks-investigator
+git clone https://github.com/drPod/tracelight.git
+cd tracelight
 
 # Download ICIJ data (~70MB) and build SQLite database (~50s)
 python scripts/download_icij.py

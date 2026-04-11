@@ -60,7 +60,7 @@ Configured in `.mcp.json`. Provides Jac-specific tools, resources, and prompts.
 
 ## Project Architecture
 
-This project is an investigative knowledge graph for the ICIJ Offshore Leaks database.
+Tracelight is an investigative knowledge graph for the ICIJ Offshore Leaks database.
 
 ### Key files
 

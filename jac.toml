@@ -1,6 +1,6 @@
-name = "icij-offshore-leaks-investigator"
+name = "tracelight"
 version = "1.0.0"
-description = "Investigative knowledge graph for ICIJ Offshore Leaks database"
+description = "Tracelight — investigative knowledge graph for the ICIJ Offshore Leaks database"
 entry-point = "main.jac"
 
 [dev-dependencies]
@@ -14,5 +14,5 @@ allow_methods = ["GET", "POST", "OPTIONS"]
 allow_headers = ["*"]
 
 [jacpack]
-name = "icij-offshore-leaks-investigator"
-description = "ICIJ Offshore Leaks investigative knowledge graph"
+name = "tracelight"
+description = "Tracelight — ICIJ Offshore Leaks investigative knowledge graph"

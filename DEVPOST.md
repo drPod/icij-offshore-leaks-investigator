@@ -50,7 +50,7 @@ You're presented with a grid of 94 Power Players — heads of state, prime minis
 
 - **The data pipeline is 70% of the work.** Ingesting 6 CSVs, building FTS5 indexes, matching Power Players by name, pre-computing connectivity matrices, caching LLM responses — the Jac code is elegant but the Python/SQLite plumbing is what makes it work.
 
-## What's next for ICIJ Offshore Leaks Investigator
+## What's next for Tracelight
 
 - **Cross-leak connections**: Currently most connections are within a single leak (Panama Papers). Bridging across leaks (finding someone who appears in both Panama and Pandora Papers) would reveal longer-term patterns.
 
