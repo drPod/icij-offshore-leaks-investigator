@@ -2,17 +2,20 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install Jac and dependencies
-RUN pip install --no-cache-dir jaclang litellm byllm
+# Pin to current PyPI releases so unpinned jaclang/byllm cannot break the image.
+# jac-scale is required for `jac start` (CORS, HTTP API).
+RUN pip install --no-cache-dir \
+    jaclang==0.16.7 \
+    jac-scale==0.2.31 \
+    byllm==0.6.19 \
+    "litellm>=1.70,<2"
 
-# Copy project files
 COPY . .
+RUN chmod +x /app/docker-entrypoint.sh
 
-# Download ICIJ data and build SQLite DB
-RUN python scripts/download_icij.py && python scripts/ingest_icij.py
-
-# Expose port
+# ICIJ CSVs + SQLite are built at first container start into the /app/data
+# bind mount so image builds stay fast and rebuilds skip the ~70MB download.
 EXPOSE 8000
+ENV PORT=8000
 
-# Start Jac server — Railway routes to port 8000 via PORT env var
-CMD ["jac", "start", "main.jac"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
