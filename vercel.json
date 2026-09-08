@@ -3,7 +3,7 @@
   "outputDirectory": "frontend",
   "framework": null,
   "rewrites": [
-    { "source": "/function/:path*", "destination": "https://icij-offshore-leaks-production.up.railway.app/function/:path*" },
-    { "source": "/walker/:path*", "destination": "https://icij-offshore-leaks-production.up.railway.app/walker/:path*" }
+    { "source": "/function/:path*", "destination": "https://tracelight-api.40-160-241-64.sslip.io/function/:path*" },
+    { "source": "/walker/:path*", "destination": "https://tracelight-api.40-160-241-64.sslip.io/walker/:path*" }
   ]
 }

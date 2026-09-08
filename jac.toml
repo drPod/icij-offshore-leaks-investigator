@@ -9,7 +9,11 @@ watchdog = ">=3.0.0"
 [serve]
 
 [plugins.scale.cors]
-allow_origins = ["*"]
+allow_origins = [
+    "https://icij-offshore-leaks.vercel.app",
+    "https://tracelight.40-160-241-64.sslip.io",
+    "http://tracelight.40-160-241-64.sslip.io",
+]
 allow_methods = ["GET", "POST", "OPTIONS"]
 allow_headers = ["*"]
 
